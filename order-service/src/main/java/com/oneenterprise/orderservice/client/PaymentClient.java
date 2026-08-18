@@ -82,6 +82,11 @@ public class PaymentClient {
             log.warn("Unexpected failure charging order {}", orderId, ex);
             throw new PaymentUnavailableException(PaymentException.Reason.PAYMENT_SERVICE_ERROR,
                     "Call to Payment Service failed while charging order " + orderId);
+
+        } catch (IllegalStateException ex) {
+            log.warn("No PAYMENT-SERVICE instance is registered ({})", ex.getMessage());
+            throw new PaymentUnavailableException(PaymentException.Reason.PAYMENT_SERVICE_UNAVAILABLE,
+                    "No Payment Service instance is currently registered with the discovery server");
         }
     }
 

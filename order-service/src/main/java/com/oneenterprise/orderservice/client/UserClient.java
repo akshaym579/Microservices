@@ -66,6 +66,11 @@ public class UserClient {
             log.warn("Unexpected failure looking up user {}", userId, ex);
             throw new UserServiceException(Reason.USER_SERVICE_ERROR,
                     "Call to User Service failed while looking up user " + userId);
+
+        } catch (IllegalStateException ex) {
+            log.warn("No USER-SERVICE instance is registered ({})", ex.getMessage());
+            throw new UserServiceException(Reason.USER_SERVICE_UNAVAILABLE,
+                    "No User Service instance is currently registered with the discovery server");
         }
     }
 }

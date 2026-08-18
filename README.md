@@ -1,14 +1,20 @@
 # Microservices
 
-Four small, independently deployable Spring Boot applications talking over
+Five small, independently deployable Spring Boot applications talking over
 HTTP/REST — no Docker, Kubernetes, or messaging.
 
-| Application       | Port | Owns / does                 | Endpoint                |
-|-------------------|------|-----------------------------|-------------------------|
-| `api-gateway`     | 8080 | Client entry point, routing | all client `/api/**`    |
-| `user-service`    | 8081 | User information            | `GET /api/users/{id}`   |
-| `order-service`   | 8082 | Orders                      | `GET`/`POST /api/orders`|
-| `payment-service` | 8083 | Payments                    | `POST /api/payments`    |
+| Application        | Port | Owns / does                 | Endpoint                |
+|--------------------|------|-----------------------------|-------------------------|
+| `discovery-server` | 8761 | Eureka service registry     | dashboard at `/`        |
+| `api-gateway`      | 8080 | Client entry point, routing | all client `/api/**`    |
+| `user-service`     | 8081 | User information            | `GET /api/users/{id}`   |
+| `order-service`    | 8082 | Orders                      | `GET`/`POST /api/orders`|
+| `payment-service`  | 8083 | Payments                    | `POST /api/payments`    |
+
+**Nothing addresses anything by URL.** Every service registers with the discovery
+server and is reached by logical name — the gateway routes to `lb://USER-SERVICE`,
+and Order Service calls `http://USER-SERVICE`. Ports appear in configuration only
+so each app knows where to bind itself.
 
 **Clients talk to the gateway on 8080.** They do not need to know the backend
 ports exist. The backends stay directly reachable, which is useful for debugging
@@ -232,7 +238,14 @@ Orders:
 ## Run it (Windows PowerShell)
 
 Set `JAVA_HOME` once per shell, then start each application in its own terminal.
-Start the two backends before the gateway.
+**Start the discovery server first** — the others will start without it, but they
+will log connection warnings until it appears.
+
+```bash
+$env:JAVA_HOME='C:\Program Files\Java\jdk-25.0.2'; cd C:\Project\microservices\discovery-server; .\mvnw.cmd spring-boot:run
+```
+
+Then open **http://localhost:8761** to watch services register.
 
 ```bash
 $env:JAVA_HOME='C:\Program Files\Java\jdk-25.0.2'; cd C:\Project\microservices\user-service; .\mvnw.cmd spring-boot:run
@@ -386,3 +399,4 @@ services, which is why it becomes a platform problem well before 20 services.
 - [DAY3-NOTES.md](DAY3-NOTES.md) — gateway, service discovery, data ownership, architecture
 - [DAY4-NOTES.md](DAY4-NOTES.md) — timeouts, retries, circuit breaker, idempotency, fallback (with measurements)
 - [DAY5-NOTES.md](DAY5-NOTES.md) — RestClient migration, record DTOs, regression evidence
+- [DAY6-NOTES.md](DAY6-NOTES.md) — Eureka discovery, `lb://` routing, what breaks when the registry evicts an instance
