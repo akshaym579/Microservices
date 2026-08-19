@@ -1,15 +1,20 @@
 # Microservices
 
-Five small, independently deployable Spring Boot applications talking over
+Six small, independently deployable Spring Boot applications talking over
 HTTP/REST — no Docker, Kubernetes, or messaging.
 
 | Application        | Port | Owns / does                 | Endpoint                |
 |--------------------|------|-----------------------------|-------------------------|
+| `config-server`    | 8888 | Centralized configuration   | `/{service}/{profile}`  |
 | `discovery-server` | 8761 | Eureka service registry     | dashboard at `/`        |
 | `api-gateway`      | 8080 | Client entry point, routing | all client `/api/**`    |
 | `user-service`     | 8081 | User information            | `GET /api/users/{id}`   |
 | `order-service`    | 8082 | Orders                      | `GET`/`POST /api/orders`|
 | `payment-service`  | 8083 | Payments                    | `POST /api/payments`    |
+
+The three infrastructure pieces answer different questions: **Config Server** —
+*what settings should I use?* (at startup). **Eureka** — *where is USER-SERVICE?*
+(continuously). **Gateway** — *where should this request go?* (per client request).
 
 **Nothing addresses anything by URL.** Every service registers with the discovery
 server and is reached by logical name — the gateway routes to `lb://USER-SERVICE`,
@@ -238,8 +243,12 @@ Orders:
 ## Run it (Windows PowerShell)
 
 Set `JAVA_HOME` once per shell, then start each application in its own terminal.
-**Start the discovery server first** — the others will start without it, but they
-will log connection warnings until it appears.
+**Start `config-server` and `discovery-server` first** — the others will start
+without them, but on local fallback configuration and with connection warnings.
+
+```bash
+$env:JAVA_HOME='C:\Program Files\Java\jdk-25.0.2'; cd C:\Project\microservices\config-server; .\mvnw.cmd spring-boot:run
+```
 
 ```bash
 $env:JAVA_HOME='C:\Program Files\Java\jdk-25.0.2'; cd C:\Project\microservices\discovery-server; .\mvnw.cmd spring-boot:run
@@ -400,3 +409,32 @@ services, which is why it becomes a platform problem well before 20 services.
 - [DAY4-NOTES.md](DAY4-NOTES.md) — timeouts, retries, circuit breaker, idempotency, fallback (with measurements)
 - [DAY5-NOTES.md](DAY5-NOTES.md) — RestClient migration, record DTOs, regression evidence
 - [DAY6-NOTES.md](DAY6-NOTES.md) — Eureka discovery, `lb://` routing, what breaks when the registry evicts an instance
+- [DAY7-NOTES.md](DAY7-NOTES.md) — Config Server, profiles, and the danger of `optional:` config imports
+
+## Configuration
+
+Environment-specific settings live in [`config-repo/`](config-repo), served by
+`config-server` and selected by `{application}-{profile}`:
+
+```bash
+curl.exe http://localhost:8888/order-service/dev
+```
+
+A service's own `application.properties` holds **working defaults**; anything the
+config server supplies overrides them. Both services expose what they actually
+resolved:
+
+```bash
+curl.exe http://localhost:8082/admin/config
+```
+
+Switch environments without rebuilding — the same jar, different timeouts:
+
+```bash
+java -jar target\order-service-0.0.1-SNAPSHOT.jar --spring.profiles.active=test
+```
+
+Because the import is `optional:`, a service **starts even when Config Server is
+down**, silently using its local defaults. `loadedFromConfigServer` in the
+`/admin/config` response is how you tell the difference — a service on fallback
+config is not an error, but it is worth noticing.
